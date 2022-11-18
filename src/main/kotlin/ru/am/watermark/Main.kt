@@ -1,5 +1,6 @@
 package ru.am.watermark
 
+import java.awt.Color
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.system.exitProcess
@@ -21,8 +22,6 @@ fun main() {
     val watermark = ImageIO.read(watermarkFile)
 
     val watermarkProperties = retriever.retrieveProperties(watermarkFile.name, watermark)
-    val useTransparency = askTransparencyIfNeeded(watermarkProperties)
-
     if (!verify("watermark", watermarkProperties)) {
         return
     }
@@ -33,6 +32,8 @@ fun main() {
         return
     }
 
+    val transparencyBehaviour: TransparencyBehaviour = transparencyBehaviour(watermarkProperties)
+
     val percentage = askPercentage()
     val output = askOutput()
     if (output.extension != "jpg" && output.extension != "png") {
@@ -40,20 +41,54 @@ fun main() {
         exitProcess(-1)
     }
 
-    val outputImage = WatermarkService().addWatermark(image, watermark, percentage, useTransparency)
+    val outputImage = WatermarkService().addWatermark(image, watermark, percentage, transparencyBehaviour)
     ImageIO.write(outputImage, output.extension, output)
 
     println("The watermarked image $output has been created.")
 }
 
-private fun askTransparencyIfNeeded(watermarkProperties: ImageProperties): Boolean {
-    var useTransparency = false
+private fun transparencyBehaviour(watermarkProperties: ImageProperties): TransparencyBehaviour {
+    val transparencyBehaviour: TransparencyBehaviour
     if (watermarkProperties.transparency == Transparency.TRANSLUCENT) {
-        println("Do you want to use the watermark's Alpha channel?")
-        val answer = readln()
-        if ("yes".equals(answer, ignoreCase = true)) {
-            useTransparency = true
+        transparencyBehaviour = TransparencyBehaviour(askTransparency(), null)
+    } else {
+        println("Do you want to set a transparency color?")
+        if (askBoolean()) {
+            println("Input a transparency color ([Red] [Green] [Blue]):")
+            val colors = readln().split(" ")
+
+            if (colors.size != 3
+                || !colors.all { it.matches(Regex("[0-9]*")) }
+                || !colors.all { it.toInt() in 0..255 }) {
+
+                println("The transparency color input is invalid.")
+                exitProcess(-1)
+            }
+
+            val intColors = colors.map { it.toInt() }
+            transparencyBehaviour = TransparencyBehaviour(
+                false,
+                Color(intColors[0], intColors[1], intColors[2])
+            )
+        } else {
+            transparencyBehaviour = TransparencyBehaviour(false, null)
         }
+    }
+    return transparencyBehaviour
+}
+
+data class TransparencyBehaviour(val alpha: Boolean, val color: Color?)
+
+private fun askTransparency(): Boolean {
+    println("Do you want to use the watermark's Alpha channel?")
+    return askBoolean()
+}
+
+private fun askBoolean(): Boolean {
+    var useTransparency = false
+    val answer = readln()
+    if ("yes".equals(answer, ignoreCase = true)) {
+        useTransparency = true
     }
     return useTransparency
 }
@@ -111,4 +146,3 @@ fun verify(type: String, properties: ImageProperties): Boolean {
 
     return true
 }
-

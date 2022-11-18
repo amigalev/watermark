@@ -5,17 +5,23 @@ import java.awt.image.BufferedImage
 
 class WatermarkService {
 
-    fun addWatermark(image: BufferedImage, watermark: BufferedImage,
-                     percentage: Int, useTransparency: Boolean = false): BufferedImage {
+    fun addWatermark(
+        image: BufferedImage, watermark: BufferedImage,
+        percentage: Int, transparencyBehaviour: TransparencyBehaviour
+    ): BufferedImage {
 
         val result = BufferedImage(image.width, image.height, BufferedImage.TYPE_INT_RGB)
         for (i in 0 until image.width) {
             for (j in 0 until image.height) {
                 val imageColor = Color(image.getRGB(i, j))
 
-                val color = if (!useTransparency) {
+                val color = if (!transparencyBehaviour.alpha) {
                     val watermarkColor = Color(watermark.getRGB(i, j))
-                    colorWithoutTransparency(percentage, watermarkColor, imageColor)
+                    if (transparencyBehaviour.color == null) {
+                        colorWithoutTransparency(percentage, watermarkColor, imageColor)
+                    } else {
+                        colorWithTransparencyColor(percentage, watermarkColor, imageColor, transparencyBehaviour.color)
+                    }
                 } else {
                     val watermarkColor = Color(watermark.getRGB(i, j), true)
                     colorWithTransparency(percentage, watermarkColor, imageColor)
@@ -26,12 +32,23 @@ class WatermarkService {
         return result
     }
 
-    private fun colorWithTransparency(percentage: Int, watermarkColor: Color, imageColor: Color): Color {
-        return if (watermarkColor.alpha == 0) {
+    private fun colorWithTransparencyColor(
+        percentage: Int,
+        watermarkColor: Color,
+        imageColor: Color,
+        transparencyColor: Color
+    ): Color {
+        return if (watermarkColor == transparencyColor)
             imageColor
-        } else {
+        else
             colorWithoutTransparency(percentage, watermarkColor, imageColor)
-        }
+    }
+
+    private fun colorWithTransparency(percentage: Int, watermarkColor: Color, imageColor: Color): Color {
+        return if (watermarkColor.alpha == 0)
+            imageColor
+        else
+            colorWithoutTransparency(percentage, watermarkColor, imageColor)
     }
 
     private fun colorWithoutTransparency(percentage: Int, watermarkColor: Color, imageColor: Color) = Color(
